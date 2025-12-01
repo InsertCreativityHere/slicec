@@ -17,8 +17,7 @@ exclude = [".github/*", ".vscode/*"]
 
 [dependencies]
 # derive feature allows structs to derive Parser automatically
-# We lock the minor version to ensure compatibility with compilers that pass options to this library.
-clap = { version = "~4.5.53", features = ["derive"] }
+clap = { version = "4.5.53", features = ["derive"] }
 console = "0.16.1"
 convert_case = "0.10.0"
 in_definite = "1.1.2"
