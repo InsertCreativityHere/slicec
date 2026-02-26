@@ -54,6 +54,7 @@ jobs:
       - name: 📐 Setup
         run: |
           echo "FEATURES=--features \"${{ matrix.features }}\"" >> $GITHUB_ENV
+          echo "$FEATURES"
           rustup toolchain install nightly
           rustup component add clippy
           rustup component add miri --toolchain nightly
