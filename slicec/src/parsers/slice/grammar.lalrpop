@@ -18,7 +18,7 @@ extern {
 
     // Link the names of terminal tokens with their actual token types. Ex: `identifier => TokenKind::Identifier`
     // says that wherever we use `identifier` in the grammar, it actually represents a `TokenKind::Identifier`.
-    // Identifiers must match the names we use in the grammar rules, and values must match enumerators in `tokens.rs`.
+    // These names must match the names we use in the grammar rules, and values must match enumerators in `tokens.rs`.
     enum TokenKind<'input> {
         identifier => TokenKind::Identifier(<&'input str>),
 
@@ -248,7 +248,10 @@ AttributeArgument: String = {
 
 Identifier: Identifier = {
     <l: @L> <i: identifier> <r: @R> => {
-        Identifier { value: i.to_owned(), span: Span::new(l, r, parser.file_name) }
+        // Remove a leading '\' escape character from the identifier if present.
+        // TODO: use https://github.com/rust-lang/rust/issues/142312 when stabilized, and inline for non-scoped.
+        let stripped_i = i.strip_prefix('\\').unwrap_or(i).to_owned();
+        Identifier { value: stripped_i, span: Span::new(l, r, parser.file_name) }
     },
 }
 

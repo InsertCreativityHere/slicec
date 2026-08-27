@@ -34,7 +34,8 @@ pub struct Ast {
     /// [`NamedSymbol`] trait (meaning it has an identifier).
     ///
     /// Each element's fully scoped identifier (without a leading '::') is used for its key, and the value stored is
-    /// the element's index in this AST (specifically in the [`elements`](Ast::elements) vector).
+    /// the element's index in this AST (specifically in the [`elements`](Ast::elements) vector). Note that module names
+    /// that conflict with keywords will have a leading '\' in their identifier, which is preserved in the lookup table.
     lookup_table: HashMap<String, usize>,
 }
 

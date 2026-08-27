@@ -12,10 +12,9 @@ pub type Error = (Location, ErrorKind, Location);
 #[derive(Clone, Debug)]
 pub enum TokenKind<'input> {
     /// An identifier for a Slice definition. Valid identifiers contain only underscores and alphanumeric characters,
-    /// and the first character must be a letter.
-    ///
-    /// While identifiers can be escaped with a leading '\', this is not counted as part of the identifier.
-    Identifier(&'input str), // "[a-zA-Z][_a-zA-Z0-9]*"
+    /// and the first character must be a letter, with one exception: identifiers that conflict with a keyword will
+    /// start with a single backslash ('\\') to escape it. For example, "\module" is a valid identifier.
+    Identifier(&'input str), // "\\?[a-zA-Z][_a-zA-Z0-9]*"
 
     /// A string literal consists of any non-newline characters contained within a pair of unescaped double-quotes.
     /// Note that the value doesn't contain the enclosing quotation marks, only the characters in between them.

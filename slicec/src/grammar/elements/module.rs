@@ -14,6 +14,9 @@ pub struct Module {
 impl Module {
     /// If this module was declared using nested module syntax, this returns the entire nested identifier.
     /// Otherwise this just returns the module's identifier.
+    ///
+    /// Note that if any of this module's segments were escaped (with a leading '\'), those escape characters are
+    /// preserved in the returned string (unless the segments did not need the escaping, i.e. weren't keywords).
     pub fn nested_module_identifier(&self) -> &str {
         &self.identifier.value
     }

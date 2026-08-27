@@ -104,10 +104,16 @@ where
         }
     }
 
-    /// Reads, consumes, and returns a string of alphanumeric characters from the buffer.
+    /// Reads, consumes, and returns a string of alphanumeric characters from the buffer, with one special behavior:
+    /// The first character of the string can be '\' (backslash character) to allow for escaping keywords.
     /// After calling this function, the next character will be a non-alphanumeric character or `None` (end of buffer).
     fn read_alphanumeric(&mut self) -> &'input str {
         let start_position = self.get_position();
+
+        // Check for, and consume, a single leading backslash character, which is used to escape keywords.
+        if matches!(self.buffer.peek(), Some((_, '\\'))) {
+            self.advance_buffer(); // Consume the backslash character.
+        }
 
         // Loop while the next character in the buffer is alphanumeric or an underscore.
         while matches!(self.buffer.peek(), Some((_, c)) if (c.is_ascii_alphanumeric() || *c == '_')) {
@@ -182,9 +188,9 @@ where
         Err(ErrorKind::UnterminatedBlockComment)
     }
 
-    /// Checks if an identifier corresponds to a Slice keyword. If it does,
-    /// return the keyword's token. Otherwise, return an `[TokenKind::Identifier]` token.
-    fn check_if_keyword(identifier: &str) -> TokenKind<'_> {
+    /// If the provided identifier is a Slice keyword, it returns the keyword's corresponding token.
+    /// Otherwise, this is a regular identifier and it returns an `[TokenKind::Identifier]` token.
+    fn get_token_for_identifier(identifier: &str) -> TokenKind<'_> {
         debug_assert!(identifier.chars().all(|c| c.is_ascii_alphanumeric() || c == '_'));
         debug_assert!(!identifier.is_empty());
 
@@ -344,29 +350,38 @@ where
                     }
                 }
             }
-            '\\' => {
-                self.advance_buffer(); // Consume the '\' character.
-                                       // Check if the next character could be the start of an identifier.
-                if matches!(self.buffer.peek(), Some((_, ch)) if ch.is_ascii_alphabetic()) {
-                    let identifier = self.read_alphanumeric();
-                    Some(Ok((start_location, TokenKind::Identifier(identifier), self.cursor)))
-                } else {
-                    // The token is just "\", indicating a syntax error. '\' on its own isn't a valid Slice token.
+            _ if c.is_ascii_alphabetic() || c == '\\' => {
+                // Read the alphanumeric string, which may start with a backslash to escape keywords.
+                let str = self.read_alphanumeric();
+                // The same string, but with any leading backslash removed.
+                // TODO: use https://github.com/rust-lang/rust/issues/142312 when stabilized.
+                let stripped_str = str.strip_prefix("\\").unwrap_or(str);
+
+                if str == "\\" {
+                    // The token was just a bare "\" with no identifier following it. This is disallowed.
                     let error = ErrorKind::UnknownSymbol {
-                        symbol: "\\".to_string(),
+                        symbol: "\\".to_owned(),
                         suggestion: Some("\\<identifier>".to_owned()),
                     };
                     Some(Err((start_location, error, self.cursor)))
-                }
-            }
-            _ if c.is_ascii_alphabetic() => {
-                let token = if self.attribute_mode {
-                    // If we're lexing an attribute, return the identifier as-is, without checking if it's a keyword.
-                    TokenKind::Identifier(self.read_alphanumeric())
+                } else if self.attribute_mode {
+                    // Inside an attribute, keywords lose all special meaning and are treated as identifiers.
+                    // So we always return an 'Identifier' token, and we always strip a leading '\' if it exists.
+                    Some(Ok((start_location, TokenKind::Identifier(stripped_str), self.cursor)))
                 } else {
-                    Self::check_if_keyword(self.read_alphanumeric())
-                };
-                Some(Ok((start_location, token, self.cursor)))
+                    // Determine what kind of token this string would be if it didn't have any escaping.
+                    let base_token = Self::get_token_for_identifier(stripped_str);
+
+                    // If the string was escaped, and if it would be parsed as a keyword without the escaping,
+                    // we return an 'Identifier' token with the leading backslash preserved, since it's meaningful here.
+                    if str.starts_with('\\') && !matches!(base_token, TokenKind::Identifier(_)) {
+                        Some(Ok((start_location, TokenKind::Identifier(str), self.cursor)))
+                    } else {
+                        // Otherwise we reach here; meaning either 'str' isn't escaped, or it was escaped, but isn't
+                        // a keyword. Either way, return the base token, without any escaping.
+                        Some(Ok((start_location, base_token, self.cursor)))
+                    }
+                }
             }
             _ if c.is_ascii_digit() => {
                 let integer = self.read_alphanumeric();
